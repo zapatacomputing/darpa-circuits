@@ -65,36 +65,91 @@ def mock_transpile_clifford_t(circuit):
     return new_circuit
 
 
+def generate_trotter_step_circuit(time):
+    number_of_qubits = 4
+    qubit_hamiltonian = generate_h2_jw_qubit_hamiltonian()
+    control_hamiltonian = add_control_qubit_to_qubit_hamiltonian(
+        qubit_hamiltonian, number_of_qubits
+    )
+
+    ### Prepare unitary circuit
+    n_trotter_steps = 1
+    trotter_circuit = time_evolution(
+        control_hamiltonian, time=time, trotter_order=n_trotter_steps
+    )
+
+    ## Prepare algorithm circuit
+    circuit = trotter_circuit
+    transpiled_circuit = mock_transpile_clifford_t(circuit)
+    # We may need to save to cirq for the ICM transpiling
+    # cirq_circuit = export_to_cirq(transpiled_circuit)
+    qiskit_circuit = export_to_qiskit(transpiled_circuit)
+    file_name = f"time_{time}_single_step"
+    file_name = file_name.replace(".", "_") + ".txt"
+    with open(file_name, "w") as f:
+        f.write(qiskit_circuit.qasm())
+
+
+def generate_trotter_circuit(time, precision):
+    number_of_qubits = 4
+    qubit_hamiltonian = generate_h2_jw_qubit_hamiltonian()
+    control_hamiltonian = add_control_qubit_to_qubit_hamiltonian(
+        qubit_hamiltonian, number_of_qubits
+    )
+
+    # TODO: explain where this comes from
+    trotter_error = precision / 10
+
+    ### Prepare unitary circuit
+    n_trotter_steps = estimate_number_of_trotter_steps(time, trotter_error)
+    trotter_circuit = time_evolution(
+        control_hamiltonian, time=time, trotter_order=n_trotter_steps
+    )
+
+    ## Prepare algorithm circuit
+    circuit = trotter_circuit
+    transpiled_circuit = mock_transpile_clifford_t(circuit)
+    # We may need to save to cirq for the ICM transpiling
+    # cirq_circuit = export_to_cirq(transpiled_circuit)
+    qiskit_circuit = export_to_qiskit(transpiled_circuit)
+    file_name = f"time_{time}_error_{trotter_error}"
+    file_name = file_name.replace(".", "_") + ".txt"
+    with open(file_name, "w") as f:
+        f.write(qiskit_circuit.qasm())
+
+
 def main():
 
     for time in [1]:
-        for precision in [1e-2, 1e-3]:
-            ### INPUTS ###
-            number_of_qubits = 4
-            qubit_hamiltonian = generate_h2_jw_qubit_hamiltonian()
-            control_hamiltonian = add_control_qubit_to_qubit_hamiltonian(
-                qubit_hamiltonian, number_of_qubits
-            )
+        generate_trotter_step_circuit(time)
+        for precision in [1e-2]:
+            generate_trotter_circuit(time, precision)
+    #         ### INPUTS ###
+    #         number_of_qubits = 4
+    #         qubit_hamiltonian = generate_h2_jw_qubit_hamiltonian()
+    #         control_hamiltonian = add_control_qubit_to_qubit_hamiltonian(
+    #             qubit_hamiltonian, number_of_qubits
+    #         )
 
-            # TODO: explain where this comes from
-            trotter_error = precision / 10
+    #         # TODO: explain where this comes from
+    #         trotter_error = precision / 10
 
-            ### Prepare unitary circuit
-            n_trotter_steps = estimate_number_of_trotter_steps(time, trotter_error)
-            trotter_circuit = time_evolution(
-                control_hamiltonian, time=time, trotter_order=n_trotter_steps
-            )
+    #         ### Prepare unitary circuit
+    #         n_trotter_steps = estimate_number_of_trotter_steps(time, trotter_error)
+    #         trotter_circuit = time_evolution(
+    #             control_hamiltonian, time=time, trotter_order=n_trotter_steps
+    #         )
 
-            ## Prepare algorithm circuit
-            circuit = trotter_circuit
-            transpiled_circuit = mock_transpile_clifford_t(circuit)
-            # We may need to save to cirq for the ICM transpiling
-            # cirq_circuit = export_to_cirq(transpiled_circuit)
-            qiskit_circuit = export_to_qiskit(transpiled_circuit)
-            file_name = f"time_{time}_error_{trotter_error}"
-            file_name = file_name.replace(".", "_") + ".txt"
-            with open(file_name, "w") as f:
-                f.write(qiskit_circuit.qasm())
+    #         ## Prepare algorithm circuit
+    #         circuit = trotter_circuit
+    #         transpiled_circuit = mock_transpile_clifford_t(circuit)
+    #         # We may need to save to cirq for the ICM transpiling
+    #         # cirq_circuit = export_to_cirq(transpiled_circuit)
+    #         qiskit_circuit = export_to_qiskit(transpiled_circuit)
+    #         file_name = f"time_{time}_error_{trotter_error}"
+    #         file_name = file_name.replace(".", "_") + ".txt"
+    #         with open(file_name, "w") as f:
+    #             f.write(qiskit_circuit.qasm())
 
 
 if __name__ == "__main__":
