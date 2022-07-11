@@ -19,7 +19,7 @@ Peter Johnson, Zapata Computing peter@zapatacomputing.com
 
 - `generating_script.py` - Python script used to generate the circuit.
 - `requirements.txt` - file with all the transient dependencies used for generating the circuits
-- `time_<T>_error_<E>.txt` - circuits files are saved in this format, where T represents the Hamiltonian simulation time and E is the Hamiltonian simulation trotter error.
+- `time_<T>_error_<E>.json` - circuits are saved as cirq json files with naming convention, where T represents the Hamiltonian simulation time and E is the Hamiltonian simulation trotter error.
 
 ## Software
 [TODO: update the description of what software was used]

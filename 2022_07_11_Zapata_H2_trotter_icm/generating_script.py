@@ -3,13 +3,23 @@ from openfermion import QubitOperator
 import openfermion as of
 import openfermionpyscf as ofpyscf
 
+from cirq import to_json
+
 from orquestra.quantum.evolution import time_evolution
-from orquestra.quantum.circuits import Circuit, T
+from orquestra.quantum.circuits import Circuit, T, X
 from orquestra.integrations.qiskit.conversions import (
-    export_to_qiskit, export_to_cirq, import_from_cirq
+    export_to_qiskit,
+)
+from orquestra.integrations.cirq.conversions import (
+    export_to_cirq, import_from_cirq,
 )
 
-from icm import icm_converter
+from icm.icm_converter import icm_circuit
+
+from cirq import X as X_cirq
+from cirq import T as T_cirq
+from cirq import CNOT as CNOT_cirq
+from cirq import H as H_cirq
 
 
 def estimate_number_of_trotter_steps(time, accuracy):
@@ -61,35 +71,14 @@ def mock_transpile_clifford_t(circuit):
     for gate_operation in circuit.operations:
         if gate_operation.gate.name == "RZ":
             new_list.append(T(gate_operation.qubit_indices[0]))
+        if gate_operation.gate.name == "RX":
+            new_list.append(X(gate_operation.qubit_indices[0]))
         else:
             new_list.append(gate_operation)
     new_circuit = Circuit(new_list)
     return new_circuit
 
 
-def generate_trotter_step_circuit(time):
-    number_of_qubits = 4
-    qubit_hamiltonian = generate_h2_jw_qubit_hamiltonian()
-    control_hamiltonian = add_control_qubit_to_qubit_hamiltonian(
-        qubit_hamiltonian, number_of_qubits
-    )
-
-    ### Prepare unitary circuit
-    n_trotter_steps = 1
-    trotter_circuit = time_evolution(
-        control_hamiltonian, time=time, trotter_order=n_trotter_steps
-    )
-
-    ## Prepare algorithm circuit
-    circuit = trotter_circuit
-    transpiled_circuit = mock_transpile_clifford_t(circuit)
-    # We may need to save to cirq for the ICM transpiling
-    # cirq_circuit = export_to_cirq(transpiled_circuit)
-    qiskit_circuit = export_to_qiskit(transpiled_circuit)
-    file_name = f"time_{time}_single_step"
-    file_name = file_name.replace(".", "_") + ".txt"
-    with open(file_name, "w") as f:
-        f.write(qiskit_circuit.qasm())
 
 
 def generate_icm_trotter_circuit(time, precision):
@@ -113,25 +102,34 @@ def generate_icm_trotter_circuit(time, precision):
     transpiled_circuit = mock_transpile_clifford_t(circuit)
 
     cirq_circuit = export_to_cirq(transpiled_circuit)
-    # qiskit_circuit = export_to_qiskit(transpiled_circuit)
+
+    # # For Athena's testing purposes
+    # file_name = f"for_athena"
+    # file_name = file_name.replace(".", "_") + ".json"
+    # with open(file_name, "w") as f:
+    #     f.write(to_json(cirq_circuit))    
 
     # ICM Compile
-    icm_cirq_circuit = icm_converter(cirq_circuit)
+    icm_cirq_circuit = icm_circuit(cirq_circuit, [X_cirq, T_cirq, CNOT_cirq, H_cirq,])
     
-    # Convert to qiskit
-    icm_qiskit_circuit = export_to_qiskit(import_from_cirq(icm_cirq_circuit))
+    # # Convert to qiskit
+    # icm_qiskit_circuit = export_to_qiskit(import_from_cirq(icm_cirq_circuit))
+
+    # file_name = f"time_{time}_error_{trotter_error}"
+    # file_name = file_name.replace(".", "_") + ".txt"
+    # with open(file_name, "w") as f:
+    #     f.write(icm_qiskit_circuit.qasm())
 
     file_name = f"time_{time}_error_{trotter_error}"
-    file_name = file_name.replace(".", "_") + ".txt"
+    file_name = file_name.replace(".", "_") + ".json"
     with open(file_name, "w") as f:
-        f.write(icm_qiskit_circuit.qasm())
+        f.write(to_json(icm_cirq_circuit))
 
 
 def main():
 
     for time in [1]:
-        generate_trotter_step_circuit(time)
-        for precision in [1e-2]:
+        for precision in [1e-1]:
             generate_icm_trotter_circuit(time, precision)
 
 
