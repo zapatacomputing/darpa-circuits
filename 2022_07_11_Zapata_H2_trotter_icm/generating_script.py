@@ -71,7 +71,7 @@ def mock_transpile_clifford_t(circuit):
     for gate_operation in circuit.operations:
         if gate_operation.gate.name == "RZ":
             new_list.append(T(gate_operation.qubit_indices[0]))
-        if gate_operation.gate.name == "RX":
+        elif gate_operation.gate.name == "RX":
             new_list.append(X(gate_operation.qubit_indices[0]))
         else:
             new_list.append(gate_operation)
