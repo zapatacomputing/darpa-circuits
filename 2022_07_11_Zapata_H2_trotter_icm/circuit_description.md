@@ -20,6 +20,8 @@ Peter Johnson, Zapata Computing peter@zapatacomputing.com
 - `generating_script.py` - Python script used to generate the circuit.
 - `requirements.txt` - file with all the transient dependencies used for generating the circuits
 - `time_<T>_error_<E>.json` - circuits are saved as cirq json files with naming convention, where T represents the Hamiltonian simulation time and E is the Hamiltonian simulation trotter error.
+- `time_<T>_error_<E>_jabalizer_matrix.csv` - using the jabalizer package, the cirq circuits were converted into the matrix description of the CNOT gates (of the ICM compilation) and stored here as a csv
+
 
 ## Software
 [TODO: update the description of what software was used]

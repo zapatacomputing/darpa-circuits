@@ -1,3 +1,4 @@
+import pickle
 import numpy as np
 from openfermion import QubitOperator
 import openfermion as of
@@ -119,6 +120,10 @@ def generate_icm_trotter_circuit(time, precision):
     # file_name = file_name.replace(".", "_") + ".txt"
     # with open(file_name, "w") as f:
     #     f.write(icm_qiskit_circuit.qasm())
+
+    # Pickle ICM circuit
+    # with open("circuit.pickle", "wb") as f:
+    #     pickle.dump(icm_cirq_circuit, f)
 
     file_name = f"time_{time}_error_{trotter_error}"
     file_name = file_name.replace(".", "_") + ".json"
