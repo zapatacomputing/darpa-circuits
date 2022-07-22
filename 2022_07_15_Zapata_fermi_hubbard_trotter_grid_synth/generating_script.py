@@ -11,12 +11,13 @@ import re
 from cirq import to_json
 
 from orquestra.quantum.evolution import time_evolution
-from orquestra.quantum.circuits import Circuit, T, X, S
+from orquestra.quantum.circuits import Circuit, T, X, S, H
 from orquestra.integrations.qiskit.conversions import (
     export_to_qiskit,
 )
 from orquestra.integrations.cirq.conversions import (
-    export_to_cirq, import_from_cirq,
+    export_to_cirq,
+    import_from_cirq,
 )
 
 from icm.icm_converter import icm_circuit
@@ -30,6 +31,7 @@ from cirq import H as H_cirq
 # TODO: add caching option
 # CACHED_GRIDSYNTH_RESULTS = {}
 
+
 def estimate_number_of_trotter_steps(time, accuracy):
     # NOTE: this formula might be actually inaccurate
     # This might provide a better one: https://arxiv.org/abs/1912.08854
@@ -37,24 +39,29 @@ def estimate_number_of_trotter_steps(time, accuracy):
     return int(np.ceil(time**2 / accuracy))
 
 
-def generate_fermi_hubbard_jw_qubit_hamiltonian(x_dimension,
-                                                y_dimension,
-                                                tunneling,
-                                                coulomb,
-                                                chemical_potential=0.,                  
-                                                spinless=False,):
+def generate_fermi_hubbard_jw_qubit_hamiltonian(
+    x_dimension,
+    y_dimension,
+    tunneling,
+    coulomb,
+    chemical_potential=0.0,
+    spinless=False,
+):
 
-    hubbard_model = of.fermi_hubbard(x_dimension,
-                  y_dimension,
-                  tunneling,
-                  coulomb,  
-                  chemical_potential,                                
-                  spinless,)
+    hubbard_model = of.fermi_hubbard(
+        x_dimension,
+        y_dimension,
+        tunneling,
+        coulomb,
+        chemical_potential,
+        spinless,
+    )
 
     # Map to QubitOperator using the JWT
     hamiltonian_jw = of.jordan_wigner(hubbard_model)
 
-    return hamiltonian_jw                                  
+    return hamiltonian_jw
+
 
 def add_control_qubit_to_qubit_hamiltonian(qubit_hamiltonian, number_of_qubits):
     # Ancilla qubit is set to be last qubit
@@ -72,25 +79,32 @@ def add_control_qubit_to_qubit_hamiltonian(qubit_hamiltonian, number_of_qubits):
 
 
 def parse_gate_sequence_str(gate_sequence_str, gate_operation):
-    
-    # Remove phase gates from gate sequence
-    phase_free_gate_sequence_str = re.sub('W','',gate_sequence_str)
 
+    # Remove phase gates from gate sequence
+    phase_free_gate_sequence_str = re.sub("W", "", gate_sequence_str.strip("\n"))
+
+    # Reverse gate order (note from gridsynth docs: "Operators are shown in matrix
+    # order, not circuit order. This means they are meant to be applied from
+    # right to left."
+    ordered_phase_free_gate_sequence_str = phase_free_gate_sequence_str[::-1]
     new_list = []
 
-    for char in phase_free_gate_sequence_str:
+    for char in ordered_phase_free_gate_sequence_str:
         if char == "S":
             new_list.append(S(gate_operation.qubit_indices[0]))
         elif char == "H":
             new_list.append(H(gate_operation.qubit_indices[0]))
         elif char == "T":
             new_list.append(T(gate_operation.qubit_indices[0]))
+        elif char == "X":
+            new_list.append(X(gate_operation.qubit_indices[0]))
         else:
             raise Exception(f"{char} cannot be converted to a gate operation.")
-    
+
     new_circuit = Circuit(new_list)
 
     return new_circuit
+
 
 def mock_transpile_clifford_t(circuit):
     new_list = []
@@ -111,16 +125,21 @@ def transpile_clifford_t(circuit):
         if gate_operation.gate.name == "RZ":
             # new_list.append(T(gate_operation.qubit_indices[0]))
             angle = gate_operation.gate.params[0]
-            result = subprocess.run(["./gridsynth", str(angle)])
+            # result = subprocess.run(["./gridsynth", str(angle)])
+            result = subprocess.run(
+                ["./gridsynth", str(angle)], capture_output=True, text=True
+            )
             gate_sequence_str = result.stdout
-            gates_from_gridsynth = parse_gate_sequence_str(gate_sequence_str, gate_operation)
-            breakpoint()
+            gates_from_gridsynth = parse_gate_sequence_str(
+                gate_sequence_str, gate_operation
+            )
             new_list.append(gates_from_gridsynth)
             # T(gate_operation.qubit_indices[0])
         elif gate_operation.gate.name == "RX":
             new_list.append(X(gate_operation.qubit_indices[0]))
         else:
             new_list.append(gate_operation)
+    # breakpoint()
     new_circuit = Circuit(new_list)
     return new_circuit
 
@@ -150,22 +169,27 @@ def transpile_clifford_t(circuit):
 #     return new_circuit
 
 
-def generate_icm_trotter_circuit(time, precision, x_dimension,
-                  y_dimension,
-                  tunneling,
-                  coulomb,
-                  chemical_potential=0.,                  
-                  spinless=False,
-                ):
-    
-    number_of_qubits = x_dimension*y_dimension * (2 ** (1-spinless))
+def generate_icm_trotter_circuit(
+    time,
+    precision,
+    x_dimension,
+    y_dimension,
+    tunneling,
+    coulomb,
+    chemical_potential=0.0,
+    spinless=False,
+):
 
-    qubit_hamiltonian = generate_fermi_hubbard_jw_qubit_hamiltonian(x_dimension,
-                  y_dimension,
-                  tunneling,
-                  coulomb,
-                  chemical_potential,                  
-                  spinless,)
+    number_of_qubits = x_dimension * y_dimension * (2 ** (1 - spinless))
+
+    qubit_hamiltonian = generate_fermi_hubbard_jw_qubit_hamiltonian(
+        x_dimension,
+        y_dimension,
+        tunneling,
+        coulomb,
+        chemical_potential,
+        spinless,
+    )
 
     control_hamiltonian = add_control_qubit_to_qubit_hamiltonian(
         qubit_hamiltonian, number_of_qubits
@@ -182,7 +206,7 @@ def generate_icm_trotter_circuit(time, precision, x_dimension,
 
     ## Prepare algorithm circuit
     circuit = trotter_circuit
-    transpiled_circuit = mock_transpile_clifford_t(circuit)
+    transpiled_circuit = transpile_clifford_t(circuit)
 
     cirq_circuit = export_to_cirq(transpiled_circuit)
 
@@ -190,11 +214,19 @@ def generate_icm_trotter_circuit(time, precision, x_dimension,
     # file_name = f"for_athena"
     # file_name = file_name.replace(".", "_") + ".json"
     # with open(file_name, "w") as f:
-    #     f.write(to_json(cirq_circuit))    
+    #     f.write(to_json(cirq_circuit))
 
     # ICM Compile
-    icm_cirq_circuit = icm_circuit(cirq_circuit, [X_cirq, T_cirq, CNOT_cirq, H_cirq,])
-    
+    icm_cirq_circuit = icm_circuit(
+        cirq_circuit,
+        [
+            X_cirq,
+            T_cirq,
+            CNOT_cirq,
+            H_cirq,
+        ],
+    )
+
     # # Convert to qiskit
     # icm_qiskit_circuit = export_to_qiskit(import_from_cirq(icm_cirq_circuit))
 
@@ -217,12 +249,9 @@ def main():
 
     for time in [1]:
         for precision in [1e-1]:
-            generate_icm_trotter_circuit(time, precision, 2,
-                                  2,
-                                  1.0,
-                                  4.0,
-                                  chemical_potential=0.5,
-                                  spinless=True)
+            generate_icm_trotter_circuit(
+                time, precision, 2, 2, 1.0, 4.0, chemical_potential=0.5, spinless=True
+            )
 
 
 if __name__ == "__main__":
