@@ -133,7 +133,8 @@ def transpile_clifford_t(circuit):
             gates_from_gridsynth = parse_gate_sequence_str(
                 gate_sequence_str, gate_operation
             )
-            new_list.append(gates_from_gridsynth)
+            new_list += gates_from_gridsynth.operations
+            # new_list.append(*gates_from_gridsynth.operations)
             # T(gate_operation.qubit_indices[0])
         elif gate_operation.gate.name == "RX":
             new_list.append(X(gate_operation.qubit_indices[0]))
@@ -250,7 +251,7 @@ def main():
     for time in [1]:
         for precision in [1e-1]:
             generate_icm_trotter_circuit(
-                time, precision, 2, 2, 1.0, 4.0, chemical_potential=0.5, spinless=True
+                time, precision, 1, 1, 1.0, 4.0, chemical_potential=0.5, spinless=True
             )
 
 
