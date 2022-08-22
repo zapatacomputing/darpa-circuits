@@ -232,7 +232,9 @@ def generate_clifford_T_trotter_circuit(
     # with open("circuit.pickle", "wb") as f:
     #     pickle.dump(cirq_circuit, f)
 
-    file_name = f"time_{time}_error_{trotter_error}"
+    file_name = (
+        f"fermi_hubbard_{x_dimension}_x_{y_dimension}_time_{time}_error_{trotter_error}"
+    )
     file_name = file_name.replace(".", "_") + ".json"
     with open(file_name, "w") as f:
         f.write(to_json(cirq_circuit))
@@ -246,8 +248,8 @@ def main():
                 time,
                 precision,
                 synthesis_accuracy,
-                2,
-                2,
+                4,
+                4,
                 1.0,
                 4.0,
                 chemical_potential=0.5,
