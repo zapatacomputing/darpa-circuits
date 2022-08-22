@@ -119,7 +119,7 @@ def mock_transpile_clifford_t(circuit):
     return new_circuit
 
 
-def transpile_clifford_t(circuit):
+def transpile_clifford_t(circuit, synthesis_accuracy):
     new_list = []
     for gate_operation in circuit.operations:
         if gate_operation.gate.name == "RZ":
@@ -127,7 +127,9 @@ def transpile_clifford_t(circuit):
             angle = gate_operation.gate.params[0]
             # result = subprocess.run(["./gridsynth", str(angle)])
             result = subprocess.run(
-                ["./gridsynth", str(angle)], capture_output=True, text=True
+                ["./gridsynth", str(angle), "-e", str(synthesis_accuracy)],
+                capture_output=True,
+                text=True,
             )
             gate_sequence_str = result.stdout
             gates_from_gridsynth = parse_gate_sequence_str(
@@ -173,6 +175,7 @@ def transpile_clifford_t(circuit):
 def generate_icm_trotter_circuit(
     time,
     precision,
+    synthesis_accuracy,
     x_dimension,
     y_dimension,
     tunneling,
@@ -197,7 +200,8 @@ def generate_icm_trotter_circuit(
     )
 
     # TODO: explain where this comes from
-    trotter_error = precision / 10
+    trotter_error = precision
+    # trotter_error = precision / 10
 
     ### Prepare unitary circuit
     n_trotter_steps = estimate_number_of_trotter_steps(time, trotter_error)
@@ -207,7 +211,7 @@ def generate_icm_trotter_circuit(
 
     ## Prepare algorithm circuit
     circuit = trotter_circuit
-    transpiled_circuit = transpile_clifford_t(circuit)
+    transpiled_circuit = transpile_clifford_t(circuit, synthesis_accuracy)
 
     cirq_circuit = export_to_cirq(transpiled_circuit)
 
@@ -247,11 +251,19 @@ def generate_icm_trotter_circuit(
 
 
 def main():
-
+    synthesis_accuracy = 1e-2
     for time in [1]:
         for precision in [1e-1]:
             generate_icm_trotter_circuit(
-                time, precision, 1, 1, 1.0, 4.0, chemical_potential=0.5, spinless=True
+                time,
+                precision,
+                synthesis_accuracy,
+                1,
+                1,
+                1.0,
+                4.0,
+                chemical_potential=0.5,
+                spinless=True,
             )
 
 
