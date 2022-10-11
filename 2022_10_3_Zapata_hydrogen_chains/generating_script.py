@@ -3,6 +3,7 @@ import numpy as np
 from openfermion import QubitOperator
 import openfermion as of
 from openfermionpyscf import generate_molecular_hamiltonian
+import warnings
 
 import time as time_lib
 import subprocess
@@ -11,13 +12,11 @@ import re
 from cirq import to_json
 
 from orquestra.quantum.evolution import time_evolution
-from orquestra.quantum.circuits import Circuit, T, X, S, H
-from orquestra.integrations.qiskit.conversions import (
-    export_to_qiskit,
-)
+from orquestra.quantum.circuits import Circuit, T, X, S, H, I
 from orquestra.integrations.cirq.conversions import (
     export_to_cirq,
     import_from_cirq,
+    from_openfermion
 )
 
 # from icm.icm_converter import icm_circuit
@@ -39,12 +38,11 @@ def estimate_number_of_trotter_steps(time, accuracy):
     return int(np.ceil(time**2 / accuracy))
 
 
-def generate_h_chain_jw_qubit_hamiltonian(system_size, grid_spacing=0.8):
+def generate_h_chain_jw_qubit_hamiltonian(basis, system_size, grid_spacing=0.8):
     # Set molecule parameters
     grid = [grid_spacing * site for site in range(system_size)]
     geometry = [("H", (0.0, 0.0, grid_location)) for grid_location in grid]
-    basis = "sto-3g"
-    multiplicity = 1
+    multiplicity = 2
     charge = 0
 
     # Perform electronic structure calculations and
@@ -95,6 +93,8 @@ def parse_gate_sequence_str(gate_sequence_str, gate_operation):
             new_list.append(T(gate_operation.qubit_indices[0]))
         elif char == "X":
             new_list.append(X(gate_operation.qubit_indices[0]))
+        elif char == "I":
+            new_list.append(I(gate_operation.qubit_indices[0]))
         else:
             raise Exception(f"{char} cannot be converted to a gate operation.")
 
@@ -123,6 +123,8 @@ def transpile_clifford_t(circuit, synthesis_accuracy):
             # new_list.append(T(gate_operation.qubit_indices[0]))
             angle = gate_operation.gate.params[0]
             # result = subprocess.run(["./gridsynth", str(angle)])
+            if np.abs(angle) < synthesis_accuracy:
+                warnings.warn("Angle smaller than synthesis accuracym returning identity", UserWarning)
             result = subprocess.run(
                 ["./gridsynth", str(angle), "-e", str(synthesis_accuracy)],
                 capture_output=True,
@@ -184,7 +186,7 @@ def generate_h_chain_clifford_T_qpe_circuit(
         grid_spacing,
     )
 
-    number_of_qubits = qubit_hamiltonian
+    number_of_qubits = of.utils.count_qubits(qubit_hamiltonian)
 
     control_hamiltonian = add_control_qubit_to_qubit_hamiltonian(
         qubit_hamiltonian, number_of_qubits
@@ -196,8 +198,9 @@ def generate_h_chain_clifford_T_qpe_circuit(
 
     ### Prepare unitary circuit
     n_trotter_steps = estimate_number_of_trotter_steps(time, trotter_error)
+
     trotter_circuit = time_evolution(
-        control_hamiltonian, time=time, trotter_order=n_trotter_steps
+        from_openfermion(control_hamiltonian), time=time, trotter_order=n_trotter_steps
     )
 
     ## Prepare algorithm circuit
@@ -213,7 +216,7 @@ def generate_h_chain_clifford_T_qpe_circuit(
 
 
 def main():
-    synthesis_accuracy = 1e-2
+    synthesis_accuracy = 1e-5
     for time in [1]:
         for precision in [1e-1]:
             generate_h_chain_clifford_T_qpe_circuit(
