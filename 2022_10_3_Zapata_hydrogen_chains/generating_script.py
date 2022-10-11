@@ -2,7 +2,7 @@ import pickle
 import numpy as np
 from openfermion import QubitOperator
 import openfermion as of
-import openfermionpyscf as ofpyscf
+from openfermionpyscf import generate_molecular_hamiltonian
 
 import time as time_lib
 import subprocess
@@ -49,9 +49,7 @@ def generate_h_chain_jw_qubit_hamiltonian(system_size, grid_spacing=0.8):
 
     # Perform electronic structure calculations and
     # obtain Hamiltonian as an InteractionOperator
-    hamiltonian = ofpyscf.generate_molecular_hamiltonian(
-        geometry, basis, multiplicity, charge
-    )
+    hamiltonian = generate_molecular_hamiltonian(geometry, basis, multiplicity, charge)
 
     # Convert to a FermionOperator
     hamiltonian_ferm_op = of.get_fermion_operator(hamiltonian)
@@ -221,8 +219,8 @@ def main():
             generate_h_chain_clifford_T_qpe_circuit(
                 time,
                 precision,
-                3,
-                synthesis_accuracy=0.000001,
+                1,
+                synthesis_accuracy,
                 grid_spacing=0.8,
             )
 
